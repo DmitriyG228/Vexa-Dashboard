@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Loader2, Check, Clock, DoorOpen, Radio, XCircle, AlertTriangle, RefreshCw, StopCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, parseUTCTimestamp } from "@/lib/utils";
 import { vexaAPI } from "@/lib/api";
 import { toast } from "sonner";
 import type { MeetingStatus, Platform } from "@/types/vexa";
@@ -81,7 +81,8 @@ export function BotStatusIndicator({ status, platform, meetingId, createdAt, onR
     }
 
     const checkTimeout = () => {
-      const created = new Date(createdAt).getTime();
+      // Parse timestamp as UTC (API returns timestamps without timezone suffix)
+      const created = parseUTCTimestamp(createdAt).getTime();
       const now = Date.now();
       const elapsed = Math.floor((now - created) / 1000);
       setElapsedSeconds(elapsed);
