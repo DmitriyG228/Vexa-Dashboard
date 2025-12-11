@@ -3,6 +3,8 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   MessageSquare,
   Send,
@@ -10,21 +12,21 @@ import {
   Sparkles,
   Trash2,
   StopCircle,
-  AlertCircle,
   XCircle,
-  RefreshCw,
+  X,
+  Bot,
+  User,
 } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAIStore } from "@/stores/ai-store";
 import { AISettingsDialog } from "./ai-settings-dialog";
 import { cn } from "@/lib/utils";
@@ -111,9 +113,12 @@ export function AIChatPanel({ meeting, transcripts = [], trigger }: AIChatPanelP
   // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollElement) {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }
     }
-  }, [messages]);
+  }, [messages, status]);
 
   // Focus textarea when opened
   useEffect(() => {
@@ -162,15 +167,16 @@ export function AIChatPanel({ meeting, transcripts = [], trigger }: AIChatPanelP
   }, [doSendMessage]);
 
   const suggestedPrompts = [
-    "Summarize this meeting",
-    "What were the main decisions?",
-    "List all action items",
+    "Summarize this meeting in key points",
+    "What were the main decisions made?",
+    "List all action items and who is responsible",
     "What topics were discussed?",
+    "Are there any unresolved questions?",
+    "What are the next steps?",
   ];
 
   // Get text content from message parts
   const getMessageContent = (message: typeof messages[0]): string => {
-    // Handle parts array
     const parts = message.parts;
     if (Array.isArray(parts)) {
       return parts
@@ -200,55 +206,57 @@ export function AIChatPanel({ meeting, transcripts = [], trigger }: AIChatPanelP
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         {trigger || (
           <Button size="sm" className="gap-2">
             <Sparkles className="h-4 w-4" />
             Ask AI
           </Button>
         )}
-      </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col p-0">
-        <SheetHeader className="p-4 pb-2 border-b">
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0">
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 border-b shrink-0">
           <div className="flex items-center justify-between">
-            <SheetTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Talk to AI
-            </SheetTitle>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold">AI Assistant</DialogTitle>
+                {meeting && (
+                  <p className="text-sm text-muted-foreground">
+                    {meeting.data?.title || meeting.platform_specific_id}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
               {messages.length > 0 && (
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={handleClear}
-                  className="h-8 w-8"
+                  className="gap-2 text-muted-foreground hover:text-foreground"
                 >
                   <Trash2 className="h-4 w-4" />
+                  Clear
                 </Button>
               )}
               <AISettingsDialog />
             </div>
           </div>
-          {meeting && (
-            <p className="text-sm text-muted-foreground">
-              Analyzing: {meeting.data?.title || meeting.platform_specific_id}
-            </p>
-          )}
-        </SheetHeader>
+        </DialogHeader>
 
-        {/* Error Banner - Prominent at top */}
+        {/* Error Banner */}
         {error && (
-          <div className="mx-4 mt-4 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+          <div className="mx-6 mt-4 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-destructive/20 flex items-center justify-center shrink-0">
-                <XCircle className="h-5 w-5 text-destructive" />
-              </div>
+              <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-destructive">Something went wrong</p>
-                <p className="text-sm text-destructive/80 mt-1">
-                  {getErrorMessage(error)}
-                </p>
+                <p className="font-medium text-destructive">Something went wrong</p>
+                <p className="text-sm text-destructive/80 mt-1">{getErrorMessage(error)}</p>
               </div>
               <Button
                 variant="ghost"
@@ -256,147 +264,154 @@ export function AIChatPanel({ meeting, transcripts = [], trigger }: AIChatPanelP
                 onClick={clearError}
                 className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
               >
-                <XCircle className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </Button>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearError}
-                className="text-xs"
-              >
-                Dismiss
-              </Button>
-              <AISettingsDialog />
             </div>
           </div>
         )}
 
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-          {!isConfigured ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Sparkles className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-semibold mb-2">Configure AI Provider</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Add your API key to start chatting with your transcripts
-              </p>
-              <AISettingsDialog />
-            </div>
-          ) : messages.length === 0 && !error ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-4">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <MessageSquare className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="font-semibold mb-2">Start a conversation</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                {transcripts.length > 0
-                  ? `Ask questions about your transcript (${transcripts.length} segments)`
-                  : "No transcript loaded. Start a meeting to get AI insights."}
-              </p>
-              {transcripts.length > 0 && (
-                <div className="grid gap-2 w-full max-w-xs">
-                  {suggestedPrompts.map((prompt) => (
-                    <button
-                      key={prompt}
-                      onClick={() => handleSuggestedPrompt(prompt)}
-                      disabled={isLoading}
-                      className="text-left text-sm px-3 py-2 rounded-lg bg-muted hover:bg-primary/10 hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+        <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
+          <div className="p-6">
+            {!isConfigured ? (
+              <div className="h-full flex flex-col items-center justify-center text-center py-16">
+                <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center mb-6">
+                  <Sparkles className="h-10 w-10 text-muted-foreground" />
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex gap-3",
-                    message.role === "user" && "flex-row-reverse"
-                  )}
-                >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback
-                      className={cn(
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      )}
-                    >
-                      {message.role === "user" ? "U" : "AI"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div
-                    className={cn(
-                      "rounded-lg px-3 py-2 max-w-[85%]",
+                <h3 className="text-xl font-semibold mb-2">Configure AI Provider</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Add your API key to start analyzing your meeting transcripts with AI
+                </p>
+                <AISettingsDialog />
+              </div>
+            ) : messages.length === 0 && !error ? (
+              <div className="flex flex-col items-center justify-center text-center py-8">
+                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-600/10 flex items-center justify-center mb-6">
+                  <MessageSquare className="h-10 w-10 text-violet-500" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Ask anything about your meeting</h3>
+                <p className="text-muted-foreground mb-8 max-w-md">
+                  {transcripts.length > 0
+                    ? `${transcripts.length} transcript segments loaded and ready to analyze`
+                    : "No transcript loaded. Start a meeting to get AI insights."}
+                </p>
+                {transcripts.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+                    {suggestedPrompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => handleSuggestedPrompt(prompt)}
+                        disabled={isLoading}
+                        className="text-left text-sm px-4 py-3 rounded-xl border bg-card hover:bg-accent hover:border-accent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="text-muted-foreground mr-2">→</span>
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-6 max-w-3xl mx-auto">
+                {messages.map((message) => (
+                  <div key={message.id} className="flex gap-4">
+                    {/* Avatar */}
+                    <div className={cn(
+                      "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    )}
-                  >
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      {getMessageContent(message).split("\n").map((line, i) => (
-                        <p key={i} className="mb-1 last:mb-0">
-                          {line || <br />}
+                        : "bg-gradient-to-br from-violet-500 to-purple-600 text-white"
+                    )}>
+                      {message.role === "user" ? (
+                        <User className="h-5 w-5" />
+                      ) : (
+                        <Bot className="h-5 w-5" />
+                      )}
+                    </div>
+
+                    {/* Message Content */}
+                    <div className="flex-1 min-w-0 pt-1">
+                      <p className="text-sm font-medium mb-2 text-muted-foreground">
+                        {message.role === "user" ? "You" : "AI Assistant"}
+                      </p>
+                      {message.role === "user" ? (
+                        <p className="text-foreground whitespace-pre-wrap">
+                          {getMessageContent(message)}
                         </p>
-                      ))}
+                      ) : (
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted prose-pre:border prose-code:text-violet-600 dark:prose-code:text-violet-400 prose-headings:font-semibold prose-ul:my-2 prose-li:my-0">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {getMessageContent(message)}
+                          </ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex gap-3">
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-muted">AI</AvatarFallback>
-                  </Avatar>
-                  <div className="rounded-lg px-3 py-2 bg-muted">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                ))}
+
+                {/* Loading indicator */}
+                {isLoading && (
+                  <div className="flex gap-4">
+                    <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                      <Bot className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <p className="text-sm font-medium mb-2 text-muted-foreground">AI Assistant</p>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Thinking...</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
         {/* Input Area */}
         {isConfigured && (
-          <div className="p-4 border-t">
-            <form onSubmit={handleSubmit} className="flex gap-2">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask a question about your transcript..."
-                className="min-h-[44px] max-h-32 resize-none"
-                rows={1}
-                disabled={isLoading}
-              />
-              {isLoading ? (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="destructive"
-                  onClick={stop}
-                >
-                  <StopCircle className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button type="submit" size="icon" disabled={!input.trim()}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              )}
+          <div className="px-6 py-4 border-t bg-muted/30 shrink-0">
+            <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+              <div className="flex gap-3">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask a question about your meeting..."
+                  className="min-h-[52px] max-h-40 resize-none bg-background"
+                  rows={1}
+                  disabled={isLoading}
+                />
+                {isLoading ? (
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant="destructive"
+                    onClick={stop}
+                    className="shrink-0 px-4"
+                  >
+                    <StopCircle className="h-5 w-5" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={!input.trim()}
+                    className="shrink-0 px-4 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Press Enter to send, Shift+Enter for new line
+              </p>
             </form>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

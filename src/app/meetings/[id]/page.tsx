@@ -115,11 +115,15 @@ export default function MeetingDetailPage() {
   }, [currentMeeting?.status, meetingId, refreshMeeting]);
 
   // Fetch transcripts when meeting is loaded
+  // Use specific properties as dependencies to avoid unnecessary refetches
+  const meetingPlatform = currentMeeting?.platform;
+  const meetingNativeId = currentMeeting?.platform_specific_id;
+
   useEffect(() => {
-    if (currentMeeting) {
-      fetchTranscripts(currentMeeting.platform, currentMeeting.platform_specific_id);
+    if (meetingPlatform && meetingNativeId) {
+      fetchTranscripts(meetingPlatform, meetingNativeId);
     }
-  }, [currentMeeting, fetchTranscripts]);
+  }, [meetingPlatform, meetingNativeId, fetchTranscripts]);
 
   if (error) {
     return (
