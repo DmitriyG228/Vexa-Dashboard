@@ -34,7 +34,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
-      isLoading: false,
+      isLoading: true, // Start with true to prevent flash redirect before hydration
       isAuthenticated: false,
 
       sendMagicLink: async (email: string): Promise<LoginResult> => {
@@ -142,7 +142,7 @@ export const useAuthStore = create<AuthState>()(
 
         // If we have user in localStorage, consider authenticated
         if (user && token) {
-          set({ isAuthenticated: true });
+          set({ isAuthenticated: true, isLoading: false });
           return;
         }
 
@@ -152,16 +152,16 @@ export const useAuthStore = create<AuthState>()(
           if (response.ok) {
             // Cookie is valid, but we don't have user info
             // Keep existing user if any
-            set({ isAuthenticated: true });
+            set({ isAuthenticated: true, isLoading: false });
           } else {
-            set({ user: null, token: null, isAuthenticated: false });
+            set({ user: null, token: null, isAuthenticated: false, isLoading: false });
           }
         } catch {
           // If server check fails but we have local data, trust it
           if (user && token) {
-            set({ isAuthenticated: true });
+            set({ isAuthenticated: true, isLoading: false });
           } else {
-            set({ user: null, token: null, isAuthenticated: false });
+            set({ user: null, token: null, isAuthenticated: false, isLoading: false });
           }
         }
       },
