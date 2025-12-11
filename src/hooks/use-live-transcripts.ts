@@ -224,25 +224,50 @@ export function useLiveTranscripts(
 
             switch (message.type) {
               case "transcript.mutable":
-                // Add or update transcript in the store
-                addTranscriptSegment(message.segment);
+                // Process all segments from the payload (Vexa sends segments array)
+                if (message.payload?.segments) {
+                  for (const seg of message.payload.segments) {
+                    // Skip empty segments or those missing required fields
+                    if (!seg.text?.trim() || !seg.absolute_start_time) continue;
+
+                    // Convert WebSocket segment to TranscriptSegment format
+                    const segment = {
+                      id: seg.absolute_start_time, // Use timestamp as unique ID
+                      meeting_id: nativeId,
+                      start_time: seg.start || 0,
+                      end_time: seg.end_time || 0,
+                      absolute_start_time: seg.absolute_start_time,
+                      absolute_end_time: seg.absolute_end_time,
+                      text: seg.text,
+                      speaker: seg.speaker || "Unknown",
+                      language: seg.language || "en",
+                      session_uid: seg.session_uid || "",
+                      created_at: seg.absolute_start_time,
+                      updated_at: seg.updated_at,
+                    };
+                    addTranscriptSegment(segment);
+                  }
+                }
                 break;
 
               case "meeting.status":
-                // Update meeting status in the store
-                updateMeetingStatus(meetingId, message.status);
-                onStatusChangeRef.current?.(message.status);
+                // Update meeting status in the store (status is in payload)
+                const status = message.payload?.status;
+                if (status) {
+                  updateMeetingStatus(meetingId, status);
+                  onStatusChangeRef.current?.(status);
 
-                // If meeting ended, disconnect WebSocket
-                if (message.status === "completed" || message.status === "failed") {
-                  console.log("[LiveTranscripts] Meeting ended, disconnecting");
-                  shouldReconnectRef.current = false;
-                  ws.close(1000, "Meeting ended");
+                  // If meeting ended, disconnect WebSocket
+                  if (status === "completed" || status === "failed") {
+                    console.log("[LiveTranscripts] Meeting ended, disconnecting");
+                    shouldReconnectRef.current = false;
+                    ws.close(1000, "Meeting ended");
+                  }
                 }
                 break;
 
               case "subscribed":
-                console.log("[LiveTranscripts] Successfully subscribed to meeting");
+                console.log("[LiveTranscripts] Successfully subscribed to meeting", message.meetings);
                 break;
 
               case "pong":

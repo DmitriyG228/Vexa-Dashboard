@@ -86,26 +86,40 @@ export interface WebSocketPingMessage {
   action: "ping";
 }
 
+// Raw segment from WebSocket (different from stored TranscriptSegment)
+export interface WebSocketSegment {
+  text: string;
+  speaker: string | null;
+  language?: string;
+  session_uid?: string;
+  start?: number;
+  end_time?: number;
+  absolute_start_time: string;
+  absolute_end_time: string;
+  updated_at?: string;
+}
+
 export interface WebSocketTranscriptMessage {
   type: "transcript.mutable";
-  platform: Platform;
-  native_id: string;
-  segment: TranscriptSegment;
+  meeting: { id: number };
+  payload: {
+    segments: WebSocketSegment[];
+  };
+  ts: string;
 }
 
 export interface WebSocketStatusMessage {
   type: "meeting.status";
-  platform: Platform;
-  native_id: string;
-  status: MeetingStatus;
+  meeting: { platform: Platform; native_id: string };
+  payload: {
+    status: MeetingStatus;
+  };
+  ts: string;
 }
 
 export interface WebSocketSubscribedMessage {
   type: "subscribed";
-  meetings: Array<{
-    platform: Platform;
-    native_id: string;
-  }>;
+  meetings: number[];  // Array of meeting IDs
 }
 
 export interface WebSocketPongMessage {

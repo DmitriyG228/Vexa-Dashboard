@@ -96,17 +96,44 @@ export function useVexaWebSocket(
 
         switch (message.type) {
           case "transcript.mutable":
-            addLiveTranscript(message.segment);
-            onTranscript?.(message.segment);
+            // Process all segments from the payload (Vexa sends segments array)
+            if (message.payload?.segments) {
+              for (const seg of message.payload.segments) {
+                // Skip empty segments or those missing required fields
+                if (!seg.text?.trim() || !seg.absolute_start_time) continue;
+
+                // Convert WebSocket segment to TranscriptSegment format
+                const segment: TranscriptSegment = {
+                  id: seg.absolute_start_time,
+                  meeting_id: nativeId,
+                  start_time: seg.start || 0,
+                  end_time: seg.end_time || 0,
+                  absolute_start_time: seg.absolute_start_time,
+                  absolute_end_time: seg.absolute_end_time,
+                  text: seg.text,
+                  speaker: seg.speaker || "Unknown",
+                  language: seg.language || "en",
+                  session_uid: seg.session_uid || "",
+                  created_at: seg.absolute_start_time,
+                  updated_at: seg.updated_at,
+                };
+                addLiveTranscript(segment);
+                onTranscript?.(segment);
+              }
+            }
             break;
 
           case "meeting.status":
-            setBotStatus(message.status);
-            onStatusChange?.(message.status);
+            // Status is now in payload
+            const status = message.payload?.status;
+            if (status) {
+              setBotStatus(status);
+              onStatusChange?.(status);
+            }
             break;
 
           case "subscribed":
-            console.log("WebSocket: Subscribed to meeting");
+            console.log("WebSocket: Subscribed to meeting", message.meetings);
             break;
 
           case "pong":
@@ -122,7 +149,7 @@ export function useVexaWebSocket(
         console.error("Failed to parse WebSocket message:", error);
       }
     },
-    [addLiveTranscript, setBotStatus, onTranscript, onStatusChange, onError]
+    [nativeId, addLiveTranscript, setBotStatus, onTranscript, onStatusChange, onError]
   );
 
   const connect = useCallback(async () => {
