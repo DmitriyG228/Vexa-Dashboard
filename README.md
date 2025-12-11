@@ -3,9 +3,10 @@
 Open source web interface for [Vexa](https://github.com/Vexa-ai/vexa) - the self-hosted meeting transcription API.
 
 A simple and intuitive dashboard that allows you to:
-- **Join meetings** - Send transcription bots to Google Meet, Microsoft Teams, and Zoom
+- **Join meetings** - Send transcription bots to Google Meet and Microsoft Teams
 - **View transcripts** - Browse and search through meeting transcriptions
 - **Real-time transcription** - Watch live transcriptions via WebSocket
+- **AI Assistant** - Chat with your meeting transcripts using OpenAI, Anthropic, or local models
 - **Export** - Download transcripts in TXT, JSON, SRT, or VTT formats
 - **User management** - Admin dashboard for managing users and API tokens
 
@@ -14,6 +15,7 @@ A simple and intuitive dashboard that allows you to:
 - **Flexible Authentication** - Magic Link (via email) or Direct Login mode
 - **Admin Dashboard** - Manage users and API tokens
 - **Real-time Streaming** - Live transcription via WebSocket
+- **AI Assistant** - Ask questions about your transcripts (OpenAI, Anthropic, Groq, Ollama, OpenRouter)
 - **Speaker Identification** - Color-coded speakers with avatars
 - **Multi-format Export** - TXT, JSON, SRT, VTT formats
 - **Registration Control** - Restrict signups by email domain
@@ -56,7 +58,7 @@ Edit `.env.local` with your configuration:
 ```env
 # Vexa API
 VEXA_API_URL=http://localhost:18056
-NEXT_PUBLIC_VEXA_WS_URL=ws://localhost:18056/ws
+NEXT_PUBLIC_VEXA_API_URL=http://localhost:18056
 
 # Admin API (required for auth)
 VEXA_ADMIN_API_KEY=your_admin_api_key
@@ -86,14 +88,14 @@ docker build -t vexa-dashboard .
 # Minimal setup (Direct Login mode - no email verification)
 docker run -p 3000:3000 \
   -e VEXA_API_URL=http://your-vexa-instance:18056 \
-  -e NEXT_PUBLIC_VEXA_WS_URL=ws://your-vexa-instance:18056/ws \
+  -e NEXT_PUBLIC_VEXA_API_URL=http://your-vexa-instance:18056 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   vexa-dashboard
 
 # With SMTP (Magic Link mode - email verification)
 docker run -p 3000:3000 \
   -e VEXA_API_URL=http://your-vexa-instance:18056 \
-  -e NEXT_PUBLIC_VEXA_WS_URL=ws://your-vexa-instance:18056/ws \
+  -e NEXT_PUBLIC_VEXA_API_URL=http://your-vexa-instance:18056 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   -e SMTP_HOST=smtp.example.com \
   -e SMTP_PORT=587 \
@@ -117,9 +119,11 @@ docker-compose up -d
 
 | Variable | Description |
 |----------|-------------|
-| `VEXA_API_URL` | Vexa API base URL |
-| `NEXT_PUBLIC_VEXA_WS_URL` | WebSocket URL for real-time updates |
+| `VEXA_API_URL` | Vexa API base URL (server-side) |
+| `NEXT_PUBLIC_VEXA_API_URL` | Vexa API URL (client-side, for WebSocket) |
 | `VEXA_ADMIN_API_KEY` | Admin API key (server-side only) |
+
+> **Note:** The WebSocket URL is automatically derived from `NEXT_PUBLIC_VEXA_API_URL` (http→ws, https→wss, +/ws). You can override it with `NEXT_PUBLIC_VEXA_WS_URL` if needed.
 
 ### SMTP Variables (Optional)
 
@@ -143,6 +147,43 @@ If SMTP is configured, Magic Link authentication is enabled. Without SMTP, Direc
 | `NEXT_PUBLIC_APP_URL` | Public URL (for magic links) | Auto-detected |
 | `ALLOW_REGISTRATIONS` | Allow new signups | `true` |
 | `ALLOWED_EMAIL_DOMAINS` | Restrict signup domains | All domains |
+
+### AI Assistant Configuration (Optional)
+
+Enable the AI chat feature to ask questions about meeting transcripts:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `AI_MODEL` | Provider/model in format `provider/model` | `openai/gpt-4o` |
+| `AI_API_KEY` | API key for the AI provider | `sk-...` |
+| `AI_BASE_URL` | Custom API endpoint (for local models) | `http://localhost:11434/v1` |
+
+**Supported Providers:**
+- `openai` - OpenAI (gpt-4o, gpt-4-turbo, gpt-3.5-turbo)
+- `anthropic` - Anthropic (claude-sonnet-4-20250514, claude-3-5-haiku-latest)
+- `groq` - Groq (llama-3.3-70b-versatile, mixtral-8x7b-32768)
+- `openrouter` - OpenRouter (any model from their catalog)
+- `ollama` - Ollama (local models like llama3.2, mistral, qwen)
+- `local` - Any OpenAI-compatible local server
+
+**Examples:**
+```env
+# OpenAI
+AI_MODEL=openai/gpt-4o
+AI_API_KEY=sk-your-openai-key
+
+# Anthropic Claude
+AI_MODEL=anthropic/claude-sonnet-4-20250514
+AI_API_KEY=sk-ant-your-key
+
+# Local Ollama
+AI_MODEL=ollama/llama3.2
+AI_BASE_URL=http://localhost:11434/v1
+
+# OpenRouter
+AI_MODEL=openrouter/anthropic/claude-sonnet-4-20250514
+AI_API_KEY=sk-or-your-key
+```
 
 ### Registration Control
 
@@ -214,10 +255,11 @@ src/
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **UI**: shadcn/ui + Tailwind CSS
 - **State**: Zustand
 - **Language**: TypeScript
+- **AI**: Vercel AI SDK (multi-provider support)
 - **Icons**: Lucide React
 - **Email**: Nodemailer
 - **Auth**: JWT (jsonwebtoken)

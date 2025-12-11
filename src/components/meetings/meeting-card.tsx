@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Meeting } from "@/types/vexa";
 import { MEETING_STATUS_CONFIG } from "@/types/vexa";
-import { useMeetingTitlesStore } from "@/stores/meeting-titles-store";
 import { cn } from "@/lib/utils";
 
 interface MeetingCardProps {
@@ -42,9 +41,10 @@ function TeamsIcon({ className }: { className?: string }) {
 
 export function MeetingCard({ meeting }: MeetingCardProps) {
   const statusConfig = MEETING_STATUS_CONFIG[meeting.status];
-  const customTitle = useMeetingTitlesStore((state) => state.titles[meeting.id]);
   // Platform detection - check if it's Google Meet (not Teams)
   const isGoogleMeet = meeting.platform !== "teams";
+  // Display title from API data (name or title field)
+  const displayTitle = meeting.data?.name || meeting.data?.title;
   const isActive = meeting.status === "active";
 
   const duration = meeting.start_time && meeting.end_time
@@ -114,7 +114,7 @@ export function MeetingCard({ meeting }: MeetingCardProps) {
                     "transition-colors duration-200",
                     "group-hover:text-primary"
                   )}>
-                    {customTitle || meeting.data?.title || `Meeting ${meeting.platform_specific_id}`}
+                    {displayTitle || `Meeting ${meeting.platform_specific_id}`}
                   </h3>
                   {meeting.data?.participants && meeting.data.participants.length > 0 ? (
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">

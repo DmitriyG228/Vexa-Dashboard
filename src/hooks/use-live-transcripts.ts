@@ -7,6 +7,7 @@ import type {
   MeetingStatus,
 } from "@/types/vexa";
 import { useMeetingsStore } from "@/stores/meetings-store";
+import { getVexaWebSocketUrl } from "@/lib/utils";
 
 interface UseLiveTranscriptsOptions {
   platform: Platform;
@@ -161,7 +162,7 @@ export function useLiveTranscripts(
       setIsConnecting(true);
       setConnectionError(null);
 
-      const wsUrl = process.env.NEXT_PUBLIC_VEXA_WS_URL || "ws://localhost:18056/ws";
+      const wsUrl = getVexaWebSocketUrl();
       console.log("[LiveTranscripts] Connecting to:", wsUrl);
 
       try {

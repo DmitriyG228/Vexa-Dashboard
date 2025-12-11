@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { vexaAPI } from "@/lib/api";
 import { AdminGuard } from "@/components/admin/admin-guard";
+import { getVexaWebSocketUrl } from "@/lib/utils";
 
 interface AIConfig {
   enabled: boolean;
@@ -116,18 +117,18 @@ function SettingsContent() {
               <Label htmlFor="wsUrl">WebSocket URL</Label>
               <Input
                 id="wsUrl"
-                value={process.env.NEXT_PUBLIC_VEXA_WS_URL || "ws://localhost:18056/ws"}
+                value={getVexaWebSocketUrl()}
                 disabled
                 className="font-mono bg-muted"
               />
               <p className="text-xs text-muted-foreground">
-                Set via <code className="bg-muted px-1 rounded">NEXT_PUBLIC_VEXA_WS_URL</code> environment variable
+                Auto-derived from <code className="bg-muted px-1 rounded">NEXT_PUBLIC_VEXA_API_URL</code>
               </p>
             </div>
 
-            {/* API Key Status */}
+            {/* Admin API Key Status */}
             <div className="space-y-2">
-              <Label>API Key</Label>
+              <Label>Admin API Key</Label>
               <div className="flex items-center gap-2">
                 <Input
                   value="••••••••••••••••••••••••••••••••"
@@ -137,7 +138,7 @@ function SettingsContent() {
                 <Badge variant="secondary">Configured</Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                Set via <code className="bg-muted px-1 rounded">VEXA_API_KEY</code> environment variable
+                Set via <code className="bg-muted px-1 rounded">VEXA_ADMIN_API_KEY</code> environment variable
               </p>
             </div>
 
@@ -283,16 +284,13 @@ function SettingsContent() {
             <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
 {`# Vexa API Configuration
 VEXA_API_URL=http://localhost:18056
-VEXA_API_KEY=your_api_key_here
-
-# WebSocket URL (public, visible client-side)
-NEXT_PUBLIC_VEXA_WS_URL=ws://localhost:18056/ws
+NEXT_PUBLIC_VEXA_API_URL=http://localhost:18056
+VEXA_ADMIN_API_KEY=your_admin_api_key_here
 
 # AI Assistant Configuration (optional)
-# Format: provider/model (e.g., openai/gpt-4o, anthropic/claude-3-opus-20240229)
+# Format: provider/model
 AI_MODEL=openai/gpt-4o
-AI_API_KEY=your_ai_api_key_here
-# AI_BASE_URL=https://custom-endpoint.com/v1  # Optional: for custom providers`}
+AI_API_KEY=your_ai_api_key_here`}
             </pre>
           </CardContent>
         </Card>

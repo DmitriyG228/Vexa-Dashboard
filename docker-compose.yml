@@ -5,13 +5,13 @@ services:
     build:
       context: .
       args:
-        NEXT_PUBLIC_VEXA_WS_URL: ${NEXT_PUBLIC_VEXA_WS_URL:-ws://localhost:18056/ws}
+        NEXT_PUBLIC_VEXA_API_URL: ${NEXT_PUBLIC_VEXA_API_URL:-http://localhost:18056}
     ports:
       - "3000:3000"
     environment:
       # Vexa API Connection
       - VEXA_API_URL=${VEXA_API_URL:-http://vexa-api:18056}
-      - NEXT_PUBLIC_VEXA_WS_URL=${NEXT_PUBLIC_VEXA_WS_URL:-ws://localhost:18056/ws}
+      - NEXT_PUBLIC_VEXA_API_URL=${NEXT_PUBLIC_VEXA_API_URL:-http://localhost:18056}
 
       # Admin API (required for authentication)
       - VEXA_ADMIN_API_KEY=${VEXA_ADMIN_API_KEY}

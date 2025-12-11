@@ -12,10 +12,10 @@ COPY . .
 
 # Build arguments for environment variables
 ARG VEXA_API_URL=http://localhost:18056
-ARG NEXT_PUBLIC_VEXA_WS_URL=ws://localhost:18056/ws
+ARG NEXT_PUBLIC_VEXA_API_URL=http://localhost:18056
 
 ENV VEXA_API_URL=$VEXA_API_URL
-ENV NEXT_PUBLIC_VEXA_WS_URL=$NEXT_PUBLIC_VEXA_WS_URL
+ENV NEXT_PUBLIC_VEXA_API_URL=$NEXT_PUBLIC_VEXA_API_URL
 
 # Build application
 RUN npm run build

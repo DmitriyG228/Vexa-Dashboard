@@ -37,11 +37,12 @@ export default function MeetingsPage() {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesId = meeting.platform_specific_id.toLowerCase().includes(query);
+        const matchesName = meeting.data?.name?.toLowerCase().includes(query);
         const matchesTitle = meeting.data?.title?.toLowerCase().includes(query);
         const matchesParticipants = meeting.data?.participants?.some(
           (p) => p.toLowerCase().includes(query)
         );
-        if (!matchesId && !matchesTitle && !matchesParticipants) {
+        if (!matchesId && !matchesName && !matchesTitle && !matchesParticipants) {
           return false;
         }
       }

@@ -8,6 +8,7 @@ import type {
   MeetingStatus,
 } from "@/types/vexa";
 import { useLiveStore } from "@/stores/live-store";
+import { getVexaWebSocketUrl } from "@/lib/utils";
 
 interface UseVexaWebSocketOptions {
   platform: Platform;
@@ -108,7 +109,7 @@ export function useVexaWebSocket(
     shouldReconnectRef.current = true;
     setConnectionState(true, false);
 
-    const wsUrl = process.env.NEXT_PUBLIC_VEXA_WS_URL || "ws://localhost:18056/ws";
+    const wsUrl = getVexaWebSocketUrl();
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -195,7 +196,7 @@ export function useVexaWebSocket(
       shouldReconnectRef.current = true;
       setConnectionState(true, false);
 
-      const wsUrl = process.env.NEXT_PUBLIC_VEXA_WS_URL || "ws://localhost:18056/ws";
+      const wsUrl = getVexaWebSocketUrl();
 
       try {
         const ws = new WebSocket(wsUrl);
