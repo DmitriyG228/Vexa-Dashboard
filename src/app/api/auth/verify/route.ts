@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { getRegistrationConfig, validateEmailForRegistration } from "@/lib/registration";
+import { findUserByEmail, createUser, createUserToken, type ApiError } from "@/lib/vexa-admin-api";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.VEXA_ADMIN_API_KEY || "default-secret-change-me";
 
@@ -10,140 +11,174 @@ interface MagicLinkPayload {
   type: string;
 }
 
+interface VerifyErrorResponse {
+  error: string;
+  code?: string;
+  details?: string;
+  canRetry?: boolean;
+}
+
+/**
+ * Create a standardized error response
+ */
+function errorResponse(
+  message: string,
+  status: number,
+  code?: string,
+  details?: string,
+  canRetry = false
+): NextResponse<VerifyErrorResponse> {
+  return NextResponse.json(
+    { error: message, code, details, canRetry },
+    { status }
+  );
+}
+
+/**
+ * Convert API error to HTTP response
+ */
+function apiErrorToResponse(apiError: ApiError, context: string): NextResponse<VerifyErrorResponse> {
+  const canRetry = ["TIMEOUT", "NETWORK_ERROR", "SERVICE_UNAVAILABLE", "SERVER_ERROR"].includes(apiError.code);
+
+  // Add context to the message
+  const message = `${context}: ${apiError.message}`;
+
+  // Map API error codes to appropriate HTTP status
+  const statusMap: Record<string, number> = {
+    NOT_CONFIGURED: 503,
+    UNAUTHORIZED: 401,
+    FORBIDDEN: 403,
+    NOT_FOUND: 404,
+    CONFLICT: 409,
+    VALIDATION_ERROR: 400,
+    RATE_LIMITED: 429,
+    SERVER_ERROR: 502,
+    SERVICE_UNAVAILABLE: 503,
+    TIMEOUT: 504,
+    NETWORK_ERROR: 503,
+    DNS_ERROR: 503,
+    CONNECTION_REFUSED: 503,
+  };
+
+  const status = statusMap[apiError.code] || 500;
+
+  return errorResponse(message, status, apiError.code, apiError.details, canRetry);
+}
+
 /**
  * Verify magic link token and complete login
  */
 export async function POST(request: NextRequest) {
-  const VEXA_ADMIN_API_URL = process.env.VEXA_ADMIN_API_URL || process.env.VEXA_API_URL || "http://localhost:18056";
   const VEXA_ADMIN_API_KEY = process.env.VEXA_ADMIN_API_KEY || "";
 
-  if (!VEXA_ADMIN_API_KEY) {
-    return NextResponse.json(
-      { error: "Server not configured for authentication" },
-      { status: 500 }
+  // Check configuration first
+  if (!VEXA_ADMIN_API_KEY || VEXA_ADMIN_API_KEY === "your_admin_api_key_here") {
+    return errorResponse(
+      "Authentication service not configured. Please contact the administrator.",
+      503,
+      "NOT_CONFIGURED"
     );
   }
 
   try {
-    const { token } = await request.json();
+    const body = await request.json();
+    const { token } = body;
 
     if (!token || typeof token !== "string") {
-      return NextResponse.json(
-        { error: "Token is required" },
-        { status: 400 }
-      );
+      return errorResponse("Verification token is required", 400, "MISSING_TOKEN");
     }
 
-    // Verify JWT token
+    // Step 1: Verify JWT token
     let payload: MagicLinkPayload;
     try {
       payload = jwt.verify(token, JWT_SECRET) as MagicLinkPayload;
     } catch (jwtError) {
-      if ((jwtError as jwt.JsonWebTokenError).name === "TokenExpiredError") {
-        return NextResponse.json(
-          { error: "Link has expired. Please request a new one." },
-          { status: 401 }
+      const err = jwtError as jwt.JsonWebTokenError;
+      if (err.name === "TokenExpiredError") {
+        return errorResponse(
+          "This link has expired. Please request a new one.",
+          401,
+          "TOKEN_EXPIRED"
         );
       }
-      return NextResponse.json(
-        { error: "Invalid or expired link" },
-        { status: 401 }
+      return errorResponse(
+        "Invalid verification link. Please request a new one.",
+        401,
+        "INVALID_TOKEN"
       );
     }
 
     if (payload.type !== "magic-link") {
-      return NextResponse.json(
-        { error: "Invalid token type" },
-        { status: 401 }
-      );
+      return errorResponse("Invalid token type", 401, "INVALID_TOKEN_TYPE");
     }
 
     const email = payload.email;
 
-    // Step 1: Try to find user by email
-    let user = null;
-    let userExists = false;
-    const userResponse = await fetch(
-      `${VEXA_ADMIN_API_URL}/admin/users/email/${encodeURIComponent(email)}`,
-      {
-        headers: {
-          "X-Admin-API-Key": VEXA_ADMIN_API_KEY,
-        },
-      }
-    );
+    // Step 2: Try to find existing user
+    const findResult = await findUserByEmail(email);
 
-    if (userResponse.ok) {
-      user = await userResponse.json();
-      userExists = true;
-    } else if (userResponse.status !== 404) {
-      const error = await userResponse.text();
-      return NextResponse.json(
-        { error: "Failed to find user", details: error },
-        { status: 500 }
-      );
+    let user;
+    let isNewUser = false;
+
+    if (findResult.success && findResult.data) {
+      // User exists
+      user = findResult.data;
+    } else if (findResult.error?.code === "NOT_FOUND") {
+      // User doesn't exist - check if registration is allowed
+      isNewUser = true;
+    } else if (findResult.error) {
+      // API error occurred
+      return apiErrorToResponse(findResult.error, "Failed to verify account");
     }
 
-    // Step 2: Check registration restrictions before creating new user
-    if (!userExists) {
+    // Step 3: Create new user if needed
+    if (isNewUser) {
+      // Check registration restrictions
       const config = getRegistrationConfig();
       const validationError = validateEmailForRegistration(email, false, config);
 
       if (validationError) {
-        return NextResponse.json(
-          { error: validationError },
-          { status: 403 }
-        );
+        return errorResponse(validationError, 403, "REGISTRATION_BLOCKED");
       }
 
-      // Create new user
-      const createResponse = await fetch(`${VEXA_ADMIN_API_URL}/admin/users`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-API-Key": VEXA_ADMIN_API_KEY,
-        },
-        body: JSON.stringify({
-          email,
-          name: email.split("@")[0],
-          max_concurrent_bots: 3,
-        }),
-      });
+      // Create the user
+      const createResult = await createUser({ email });
 
-      if (!createResponse.ok) {
-        const error = await createResponse.text();
-        return NextResponse.json(
-          { error: "Failed to create user", details: error },
-          { status: 500 }
-        );
+      if (!createResult.success || !createResult.data) {
+        if (createResult.error) {
+          // Check if user was created in a race condition
+          if (createResult.error.code === "CONFLICT") {
+            // User was created between our check and create, try to find again
+            const retryFind = await findUserByEmail(email);
+            if (retryFind.success && retryFind.data) {
+              user = retryFind.data;
+            } else {
+              return apiErrorToResponse(createResult.error, "Failed to create account");
+            }
+          } else {
+            return apiErrorToResponse(createResult.error, "Failed to create account");
+          }
+        } else {
+          return errorResponse("Failed to create account", 500, "CREATE_FAILED");
+        }
+      } else {
+        user = createResult.data;
       }
-
-      user = await createResponse.json();
     }
 
-    // Step 3: Create new API token for this session
-    const tokenResponse = await fetch(
-      `${VEXA_ADMIN_API_URL}/admin/users/${user.id}/tokens`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-API-Key": VEXA_ADMIN_API_KEY,
-        },
-      }
-    );
+    // Step 4: Create API token for the user
+    const tokenResult = await createUserToken(user!.id);
 
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      return NextResponse.json(
-        { error: "Failed to create API token", details: error },
-        { status: 500 }
-      );
+    if (!tokenResult.success || !tokenResult.data) {
+      if (tokenResult.error) {
+        return apiErrorToResponse(tokenResult.error, "Failed to create session");
+      }
+      return errorResponse("Failed to create session", 500, "TOKEN_CREATE_FAILED");
     }
 
-    const newToken = await tokenResponse.json();
-    const apiToken = newToken.token;
+    const apiToken = tokenResult.data.token;
 
-    // Step 4: Set token in HTTP-only cookie for security
+    // Step 5: Set token in HTTP-only cookie
     const cookieStore = await cookies();
     cookieStore.set("vexa-token", apiToken, {
       httpOnly: true,
@@ -153,23 +188,34 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    // Step 5: Return user info and token for localStorage
+    // Step 6: Return success with user info
     return NextResponse.json({
       success: true,
+      isNewUser,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        max_concurrent_bots: user.max_concurrent_bots,
-        created_at: user.created_at,
+        id: user!.id,
+        email: user!.email,
+        name: user!.name,
+        max_concurrent_bots: user!.max_concurrent_bots,
+        created_at: user!.created_at,
       },
-      token: apiToken, // Return token for localStorage storage
+      token: apiToken,
     });
   } catch (error) {
     console.error("Verify error:", error);
-    return NextResponse.json(
-      { error: "Verification failed", details: (error as Error).message },
-      { status: 500 }
+    const err = error as Error;
+
+    // Check for JSON parse errors
+    if (err.message.includes("JSON")) {
+      return errorResponse("Invalid request format", 400, "INVALID_REQUEST");
+    }
+
+    return errorResponse(
+      "An unexpected error occurred. Please try again.",
+      500,
+      "INTERNAL_ERROR",
+      err.message,
+      true
     );
   }
 }
