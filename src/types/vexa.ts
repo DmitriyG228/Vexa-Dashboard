@@ -238,27 +238,32 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
       case "stopped":
         return {
           label: "Stopped",
-          color: "text-slate-600",
-          bgColor: "bg-slate-100",
+          color: "text-red-600 dark:text-red-400",
+          bgColor: "bg-red-100 dark:bg-red-950/50",
           description: "Manually stopped by user",
         };
       case "meeting_ended":
         return {
           label: "Ended",
-          color: "text-blue-600",
-          bgColor: "bg-blue-100",
+          color: "text-emerald-600 dark:text-emerald-400",
+          bgColor: "bg-emerald-100 dark:bg-emerald-950/50",
           description: "Meeting ended naturally",
         };
       case "kicked":
       case "removed":
         return {
           label: "Removed",
-          color: "text-orange-600",
-          bgColor: "bg-orange-100",
+          color: "text-orange-600 dark:text-orange-400",
+          bgColor: "bg-orange-100 dark:bg-orange-950/50",
           description: "Bot was removed from meeting",
         };
       default:
-        return { ...baseConfig, description: "Transcription completed" };
+        return {
+          ...baseConfig,
+          color: "text-blue-600 dark:text-blue-400",
+          bgColor: "bg-blue-100 dark:bg-blue-950/50",
+          description: "Transcription completed"
+        };
     }
   }
 
@@ -279,25 +284,50 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
           break;
       }
     }
-    return { ...baseConfig, description };
+    return {
+      label: "Failed",
+      color: "text-red-600 dark:text-red-400",
+      bgColor: "bg-red-100 dark:bg-red-950/50",
+      description
+    };
   }
 
   // For active meetings
   if (status === "active") {
-    return { ...baseConfig, description: "Recording in progress" };
+    return {
+      label: "Active",
+      color: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-100 dark:bg-green-950/50",
+      description: "Recording in progress"
+    };
   }
 
   // For joining states
   if (status === "joining") {
-    return { ...baseConfig, description: "Connecting to meeting" };
+    return {
+      label: "Joining",
+      color: "text-yellow-600 dark:text-yellow-400",
+      bgColor: "bg-yellow-100 dark:bg-yellow-950/50",
+      description: "Connecting to meeting"
+    };
   }
 
   if (status === "awaiting_admission") {
-    return { ...baseConfig, description: "Waiting in lobby" };
+    return {
+      label: "Waiting",
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-100 dark:bg-amber-950/50",
+      description: "Waiting in lobby"
+    };
   }
 
   if (status === "requested") {
-    return { ...baseConfig, description: "Starting bot" };
+    return {
+      label: "Requested",
+      color: "text-gray-600 dark:text-gray-400",
+      bgColor: "bg-gray-100 dark:bg-gray-800/50",
+      description: "Starting bot"
+    };
   }
 
   return baseConfig;
