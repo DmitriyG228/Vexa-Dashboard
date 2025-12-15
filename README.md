@@ -11,14 +11,15 @@
 
 ```bash
 docker run -p 3000:3000 \
-  -e VEXA_API_URL=http://your-vexa-instance:18056 \
+  -e VEXA_API_URL=http://your-vexa-instance:8056 \
+  -e VEXA_ADMIN_API_URL=http://your-vexa-instance:8057 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   synapsr/vexa-dashboard
 ```
 
 **That's it!** Open [http://localhost:3000](http://localhost:3000) and start transcribing meetings.
 
-> 💡 Only 2 environment variables needed to get started. All other settings are optional.
+> 💡 Only 3 environment variables needed to get started. All other settings are optional.
 
 ---
 
@@ -45,7 +46,8 @@ Pull and run the pre-built image:
 
 ```bash
 docker run -p 3000:3000 \
-  -e VEXA_API_URL=http://your-vexa-instance:18056 \
+  -e VEXA_API_URL=http://your-vexa-instance:8056 \
+  -e VEXA_ADMIN_API_URL=http://your-vexa-instance:8057 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   synapsr/vexa-dashboard
 ```
@@ -56,7 +58,8 @@ Add AI-powered transcript analysis:
 
 ```bash
 docker run -p 3000:3000 \
-  -e VEXA_API_URL=http://your-vexa-instance:18056 \
+  -e VEXA_API_URL=http://your-vexa-instance:8056 \
+  -e VEXA_ADMIN_API_URL=http://your-vexa-instance:8057 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   -e AI_MODEL=openai/gpt-4o \
   -e AI_API_KEY=sk-your-openai-key \
@@ -69,7 +72,8 @@ Enable Magic Link login with SMTP:
 
 ```bash
 docker run -p 3000:3000 \
-  -e VEXA_API_URL=http://your-vexa-instance:18056 \
+  -e VEXA_API_URL=http://your-vexa-instance:8056 \
+  -e VEXA_ADMIN_API_URL=http://your-vexa-instance:8057 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   -e SMTP_HOST=smtp.resend.com \
   -e SMTP_PORT=587 \
@@ -88,7 +92,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VEXA_API_URL=http://vexa-api:18056
+      - VEXA_API_URL=http://vexa:8056
+      - VEXA_ADMIN_API_URL=http://vexa:8057
       - VEXA_ADMIN_API_KEY=${VEXA_ADMIN_API_KEY}
     restart: unless-stopped
 ```
@@ -99,7 +104,8 @@ services:
 
 | Variable | Description |
 |----------|-------------|
-| `VEXA_API_URL` | Your Vexa API URL |
+| `VEXA_API_URL` | Your Vexa API URL (for meetings, transcripts, bots) |
+| `VEXA_ADMIN_API_URL` | Your Vexa Admin API URL (for user management) |
 | `VEXA_ADMIN_API_KEY` | Admin API key from Vexa |
 
 ### Optional Variables
@@ -169,7 +175,8 @@ docker build -t vexa-dashboard .
 
 # Run
 docker run -p 3000:3000 \
-  -e VEXA_API_URL=http://your-vexa-instance:18056 \
+  -e VEXA_API_URL=http://your-vexa-instance:8056 \
+  -e VEXA_ADMIN_API_URL=http://your-vexa-instance:8057 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   vexa-dashboard
 ```
