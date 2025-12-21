@@ -233,6 +233,14 @@ export interface DetailedStatusInfo {
 export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): DetailedStatusInfo {
   const baseConfig = MEETING_STATUS_CONFIG[status];
 
+  // Fallback config in case status is invalid or config is missing
+  const fallbackConfig: DetailedStatusInfo = {
+    label: "Unknown",
+    color: "text-gray-600 dark:text-gray-400",
+    bgColor: "bg-gray-100 dark:bg-gray-800/50",
+    description: "Unknown status"
+  };
+
   // For completed meetings, check completion reason
   if (status === "completed" && data?.completion_reason) {
     switch (data.completion_reason) {
@@ -260,7 +268,7 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
         };
       default:
         return {
-          ...baseConfig,
+          ...(baseConfig || fallbackConfig),
           color: "text-blue-600 dark:text-blue-400",
           bgColor: "bg-blue-100 dark:bg-blue-950/50",
           description: "Transcription completed"
@@ -331,7 +339,8 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
     };
   }
 
-  return baseConfig;
+  // Return baseConfig if it exists, otherwise fallback
+  return baseConfig || fallbackConfig;
 }
 
 // Languages supported by Whisper

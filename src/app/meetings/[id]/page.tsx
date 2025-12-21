@@ -150,22 +150,16 @@ export default function MeetingDetailPage() {
     return () => clearInterval(interval);
   }, [currentMeeting?.status, meetingId, refreshMeeting]);
 
-  // Fetch transcripts for completed meetings only (active meetings use WebSocket hook)
+  // Fetch transcripts when meeting is loaded
   // Use specific properties as dependencies to avoid unnecessary refetches
   const meetingPlatform = currentMeeting?.platform;
   const meetingNativeId = currentMeeting?.platform_specific_id;
-  const meetingStatus = currentMeeting?.status;
 
   useEffect(() => {
-    // Only fetch transcripts for completed/failed meetings (active meetings bootstrap via WebSocket)
-    if (
-      meetingPlatform &&
-      meetingNativeId &&
-      (meetingStatus === "completed" || meetingStatus === "failed")
-    ) {
+    if (meetingPlatform && meetingNativeId) {
       fetchTranscripts(meetingPlatform, meetingNativeId);
     }
-  }, [meetingPlatform, meetingNativeId, meetingStatus, fetchTranscripts]);
+  }, [meetingPlatform, meetingNativeId, fetchTranscripts]);
 
   if (error) {
     return (
@@ -188,6 +182,12 @@ export default function MeetingDetailPage() {
 
   const platformConfig = PLATFORM_CONFIG[currentMeeting.platform];
   const statusConfig = getDetailedStatus(currentMeeting.status, currentMeeting.data);
+
+  // Safety check: ensure statusConfig is always defined
+  if (!statusConfig) {
+    console.error("statusConfig is undefined for status:", currentMeeting.status);
+    return <MeetingDetailSkeleton />;
+  }
 
   const duration =
     currentMeeting.start_time && currentMeeting.end_time

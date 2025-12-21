@@ -240,15 +240,15 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       hasUpdates = true;
     }
 
-    // Update store immediately if there are any new/updated segments
-    // Zustand's set() is synchronous, ensuring immediate UI updates
-    if (hasUpdates) {
-      // Convert map to array and sort by absolute_start_time
-      const sortedTranscripts = Array.from(transcriptMap.values()).sort(
-        (a, b) => a.absolute_start_time.localeCompare(b.absolute_start_time)
-      );
-      set({ transcripts: sortedTranscripts });
-    }
+    // Always update store to ensure React detects changes (even if no new segments, content may have updated)
+    // Convert map to array and sort by absolute_start_time
+    const sortedTranscripts = Array.from(transcriptMap.values()).sort(
+      (a, b) => a.absolute_start_time.localeCompare(b.absolute_start_time)
+    );
+    
+    // Update store immediately - Zustand's set() is synchronous, ensuring immediate UI updates
+    // Always set to ensure React detects changes (new array reference)
+    set({ transcripts: sortedTranscripts });
   },
 
   // Real-time: Add new transcript segment (legacy method, kept for compatibility)

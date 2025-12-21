@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useMemo, useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { Search, Download, FileText, FileJson, FileVideo, X, Users, MessageSquare, Wifi, WifiOff, Loader2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -55,6 +54,13 @@ export function TranscriptViewer({
   const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Smart scroll state management
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollTopRef = useRef(0);
+  const isNearBottomRef = useRef(true);
+  const hasScrolledOnceRef = useRef(false);
 
   // Keyboard shortcut for search (Cmd/Ctrl + F)
   useEffect(() => {
@@ -197,9 +203,10 @@ export function TranscriptViewer({
   }, [segments]);
 
   // Group segments by speaker first, then filter
+  // Use segments.length as part of the key to ensure re-computation when segments change
   const groupedSegments = useMemo(() => {
     return groupSegmentsBySpeaker(segments);
-  }, [segments, groupSegmentsBySpeaker]);
+  }, [segments, segments.length, groupSegmentsBySpeaker]);
 
   // Filter grouped segments by search query and selected speakers
   const filteredSegments = useMemo(() => {
@@ -240,15 +247,145 @@ export function TranscriptViewer({
 
   const hasActiveFilters = searchQuery.trim() || selectedSpeakers.length > 0;
 
-  // Auto-scroll to bottom when live and new segments/groups arrive
+  // Get the scroll container - use direct ref (like example client)
+  const getScrollContainer = useCallback(() => {
+    return scrollRef.current;
+  }, []);
+
+  // Check if scroll is near bottom (within threshold)
+  const checkIfNearBottom = useCallback(() => {
+    const scrollContainer = getScrollContainer();
+    if (!scrollContainer) return false;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+    const threshold = 100; // pixels from bottom
+    return scrollHeight - scrollTop - clientHeight < threshold;
+  }, [getScrollContainer]);
+
+  // Handle scroll events to detect user scrolling
+  const handleScroll = useCallback(() => {
+    const scrollContainer = getScrollContainer();
+    if (!scrollContainer) return;
+
+    const currentScrollTop = scrollContainer.scrollTop;
+    const isScrollingUp = currentScrollTop < lastScrollTopRef.current;
+    const isNearBottom = checkIfNearBottom();
+
+    // Update refs
+    lastScrollTopRef.current = currentScrollTop;
+    isNearBottomRef.current = isNearBottom;
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
+    }
+
+    // Mark that user has scrolled manually
+    hasScrolledOnceRef.current = true;
+    
+    // If user is scrolling up or not near bottom, mark as user scrolling
+    if (isScrollingUp || !isNearBottom) {
+      setIsUserScrolling(true);
+
+      // Set timeout to reset user scrolling after 5 seconds of inactivity (only if near bottom)
+      scrollTimeoutRef.current = setTimeout(() => {
+        // Check again if near bottom before resetting
+        if (checkIfNearBottom()) {
+          setIsUserScrolling(false);
+        }
+        scrollTimeoutRef.current = null;
+      }, 5000);
+    } else {
+      // User scrolled back to bottom - reset immediately
+      setIsUserScrolling(false);
+    }
+  }, [getScrollContainer, checkIfNearBottom]);
+
+  // Scroll to bottom (only if not user scrolling)
+  const scrollToBottom = useCallback(() => {
+    if (isUserScrolling) return;
+    
+    const scrollContainer = getScrollContainer();
+    if (!scrollContainer) return;
+    
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    
+    // Update ref to reflect we're at bottom
+    lastScrollTopRef.current = scrollContainer.scrollTop;
+    isNearBottomRef.current = true;
+  }, [getScrollContainer, isUserScrolling]);
+
+
+  // Add scroll event listener (with retry to ensure viewport is available)
   useEffect(() => {
-    if (isLive && scrollRef.current) {
-      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+    let scrollContainer: HTMLElement | null = null;
+    let retryTimeout: NodeJS.Timeout | null = null;
+
+    const setupScrollListener = () => {
+      scrollContainer = getScrollContainer();
+      if (!scrollContainer) {
+        // Retry after a short delay if viewport not found (max 10 retries)
+        let retries = 0;
+        const maxRetries = 10;
+        retryTimeout = setTimeout(() => {
+          retries++;
+          if (retries < maxRetries) {
+            setupScrollListener();
+          }
+        }, 100);
+        return;
+      }
+
+      scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+    };
+
+    setupScrollListener();
+
+    return () => {
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
       if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        scrollContainer.removeEventListener("scroll", handleScroll);
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+    };
+  }, [getScrollContainer, handleScroll]);
+
+  // Auto-scroll to bottom when live and new segments/groups arrive (only if not user scrolling)
+  // Trigger immediately when segments change
+  useEffect(() => {
+    if (!isLive) return; // Only scroll when meeting is active
+    
+    // Scroll when segments change
+    if (groupedSegments.length > 0) {
+      const container = scrollRef.current;
+      if (!container) return;
+      
+      // Always scroll on first load or if user hasn't scrolled manually
+      // Only respect isUserScrolling after user has interacted
+      const shouldScroll = !hasScrolledOnceRef.current || !isUserScrolling;
+      
+      if (shouldScroll) {
+        // Use multiple requestAnimationFrame calls to ensure DOM is fully updated and painted
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            // Check if content is scrollable
+            const canScroll = container.scrollHeight > container.clientHeight;
+            if (!canScroll) return; // Nothing to scroll yet
+            
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+            lastScrollTopRef.current = container.scrollTop;
+            isNearBottomRef.current = true;
+          });
+        });
       }
     }
-  }, [groupedSegments.length, isLive]);
+  }, [segments.length, groupedSegments.length, isLive, isUserScrolling]); // Depend on segments.length to trigger on any change
 
   // Export handlers
   const handleExport = (format: "txt" | "json" | "srt" | "vtt") => {
@@ -465,7 +602,10 @@ export function TranscriptViewer({
       </CardHeader>
 
       <CardContent className="flex-1 min-h-0">
-        <ScrollArea className="h-[500px] pr-4" ref={scrollRef}>
+        <div 
+          ref={scrollRef}
+          className="h-[500px] pr-4 overflow-y-auto"
+        >
           {filteredSegments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
               {hasActiveFilters ? (
@@ -533,7 +673,7 @@ export function TranscriptViewer({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );
