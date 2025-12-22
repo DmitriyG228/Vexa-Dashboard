@@ -55,9 +55,13 @@ export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
   // Unwrap params if it's a Promise (Next.js 15+ compatibility)
-  // useParams() should return a synchronous object in client components,
-  // but React may serialize it as a Promise during DevTools inspection
-  const resolvedParams = (params && typeof params === 'object' && 'then' in params && typeof (params as any).then === 'function')
+  // In Next.js 15+, params can be a Promise and must be unwrapped with React.use()
+  // Check if params is a Promise by checking if it has 'then' method and doesn't have 'id' property
+  const isPromise = params && typeof params === 'object' && 
+    'then' in params && 
+    typeof (params as any).then === 'function' && 
+    !('id' in params);
+  const resolvedParams = isPromise 
     ? use(params as Promise<{ id: string }>)
     : (params as { id: string });
   const userId = resolvedParams.id as string;

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, use } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { format } from "date-fns";
 import {
   ArrowLeft,
@@ -43,9 +44,13 @@ export default function MeetingDetailPage() {
   const params = useParams();
   const router = useRouter();
   // Unwrap params if it's a Promise (Next.js 15+ compatibility)
-  // useParams() should return a synchronous object in client components,
-  // but React may serialize it as a Promise during DevTools inspection
-  const resolvedParams = (params && typeof params === 'object' && 'then' in params && typeof (params as any).then === 'function')
+  // In Next.js 15+, params can be a Promise and must be unwrapped with React.use()
+  // Check if params is a Promise by checking if it has 'then' method and doesn't have 'id' property
+  const isPromise = params && typeof params === 'object' && 
+    'then' in params && 
+    typeof (params as any).then === 'function' && 
+    !('id' in params);
+  const resolvedParams = isPromise 
     ? use(params as Promise<{ id: string }>)
     : (params as { id: string });
   const meetingId = resolvedParams.id as string;
@@ -402,8 +407,16 @@ export default function MeetingDetailPage() {
             <CardContent className="space-y-4">
               {/* Platform & Meeting ID */}
               <div className="flex items-center gap-3">
-                <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", platformConfig.bgColor)}>
-                  <Video className={cn("h-4 w-4", platformConfig.textColor)} />
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center overflow-hidden bg-background">
+                  <Image
+                    src={currentMeeting.platform === "google_meet" 
+                      ? "/icons/icons8-google-meet-96.png" 
+                      : "/icons/icons8-teams-96.png"}
+                    alt={platformConfig.name}
+                    width={32}
+                    height={32}
+                    className="object-contain"
+                  />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{platformConfig.name}</p>

@@ -45,6 +45,23 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <MCPConfigButton />
+          <Button variant="outline" asChild>
+            <a
+              href="https://github.com/Vexa-ai/vexa-dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2"
+            >
+              <img
+                src="/icons/icons8-github-120.png"
+                alt="GitHub"
+                width={20}
+                height={20}
+                className="object-contain flex-shrink-0"
+              />
+              Fork me!
+            </a>
+          </Button>
           <Button onClick={openJoinModal}>
             <Plus className="mr-2 h-4 w-4" />
             Join Meeting

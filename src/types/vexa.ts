@@ -214,12 +214,12 @@ export const PLATFORM_CONFIG = {
 } as const;
 
 export const MEETING_STATUS_CONFIG: Record<MeetingStatus, { label: string; color: string; bgColor: string }> = {
-  requested: { label: "Requested", color: "text-gray-600", bgColor: "bg-gray-100" },
-  joining: { label: "Joining", color: "text-yellow-600", bgColor: "bg-yellow-100" },
-  awaiting_admission: { label: "Waiting", color: "text-orange-600", bgColor: "bg-orange-100" },
-  active: { label: "Active", color: "text-green-600", bgColor: "bg-green-100" },
-  completed: { label: "Completed", color: "text-blue-600", bgColor: "bg-blue-100" },
-  failed: { label: "Failed", color: "text-red-600", bgColor: "bg-red-100" },
+  requested: { label: "Requested", color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-100 dark:bg-blue-950/50" },
+  joining: { label: "Joining", color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-100 dark:bg-blue-950/50" },
+  awaiting_admission: { label: "Waiting", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 dark:bg-amber-950/50" },
+  active: { label: "Active", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 dark:bg-green-950/50" },
+  completed: { label: "Completed", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 dark:bg-green-950/50" },
+  failed: { label: "Failed", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-950/50" },
 };
 
 // Get detailed status info based on meeting data
@@ -247,15 +247,15 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
       case "stopped":
         return {
           label: "Stopped",
-          color: "text-red-600 dark:text-red-400",
-          bgColor: "bg-red-100 dark:bg-red-950/50",
+          color: "text-gray-600 dark:text-gray-400",
+          bgColor: "bg-gray-100 dark:bg-gray-800/50",
           description: "Manually stopped by user",
         };
       case "meeting_ended":
         return {
           label: "Ended",
-          color: "text-emerald-600 dark:text-emerald-400",
-          bgColor: "bg-emerald-100 dark:bg-emerald-950/50",
+          color: "text-green-600 dark:text-green-400",
+          bgColor: "bg-green-100 dark:bg-green-950/50",
           description: "Meeting ended naturally",
         };
       case "kicked":
@@ -266,11 +266,18 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
           bgColor: "bg-orange-100 dark:bg-orange-950/50",
           description: "Bot was removed from meeting",
         };
+      case "awaiting_admission_rejected":
+        return {
+          label: "Rejected",
+          color: "text-red-600 dark:text-red-400",
+          bgColor: "bg-red-100 dark:bg-red-950/50",
+          description: "Bot was not admitted to meeting",
+        };
       default:
         return {
           ...(baseConfig || fallbackConfig),
-          color: "text-blue-600 dark:text-blue-400",
-          bgColor: "bg-blue-100 dark:bg-blue-950/50",
+          color: "text-green-600 dark:text-green-400",
+          bgColor: "bg-green-100 dark:bg-green-950/50",
           description: "Transcription completed"
         };
     }
@@ -315,8 +322,8 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
   if (status === "joining") {
     return {
       label: "Joining",
-      color: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-100 dark:bg-yellow-950/50",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-100 dark:bg-blue-950/50",
       description: "Connecting to meeting"
     };
   }
@@ -333,8 +340,8 @@ export function getDetailedStatus(status: MeetingStatus, data?: MeetingData): De
   if (status === "requested") {
     return {
       label: "Requested",
-      color: "text-gray-600 dark:text-gray-400",
-      bgColor: "bg-gray-100 dark:bg-gray-800/50",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-100 dark:bg-blue-950/50",
       description: "Starting bot"
     };
   }

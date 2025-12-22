@@ -86,7 +86,7 @@ export function MeetingList({
     <div className="space-y-4">
       {displayedMeetings.map((meeting, index) => (
         <div
-          key={meeting.id}
+          key={`${meeting.id}-${meeting.platform_specific_id}-${index}`}
           className="animate-fade-in-up"
           style={{ animationDelay: `${index * 50}ms`, animationFillMode: "backwards" }}
         >
