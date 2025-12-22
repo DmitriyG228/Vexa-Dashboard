@@ -47,6 +47,23 @@ export default function DashboardPage() {
           <MCPConfigButton />
           <Button variant="outline" asChild>
             <a
+              href="https://discord.gg/KXpwveJewr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2"
+            >
+              <img
+                src="/icons/icons8-discord-100.png"
+                alt="Discord"
+                width={20}
+                height={20}
+                className="object-contain flex-shrink-0"
+              />
+              Support
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a
               href="https://github.com/Vexa-ai/vexa-dashboard"
               target="_blank"
               rel="noopener noreferrer"
