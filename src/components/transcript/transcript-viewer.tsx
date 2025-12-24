@@ -171,25 +171,55 @@ export function TranscriptViewer({
 
     if (current) groups.push(current);
 
-    // Split long combinedText into chunks for readability (max 512 chars)
+    // Split long speaker-runs into chunks for readability, but keep correct timestamps
+    // by chunking on underlying segments (so each chunk's time = first segment in that chunk).
     const MAX_CHARS = 512;
-    const splitGroups: GroupedSegment[] = [];
+    const chunkedGroups: GroupedSegment[] = [];
+
     for (const g of groups) {
-      const chunks = splitTextIntoSentenceChunks(g.combinedText, MAX_CHARS);
-      if (chunks.length <= 1) {
-        splitGroups.push(g);
-      } else {
-        for (const chunk of chunks) {
-          splitGroups.push({
-            ...g,
-            combinedText: chunk,
-          });
+      if (!g.segments || g.segments.length === 0) continue;
+
+      let chunkSegments: TranscriptSegmentType[] = [];
+      let chunkText = "";
+
+      const flushChunk = () => {
+        if (chunkSegments.length === 0) return;
+        const first = chunkSegments[0];
+        const last = chunkSegments[chunkSegments.length - 1];
+        chunkedGroups.push({
+          speaker: g.speaker,
+          startTime: first.absolute_start_time,
+          endTime: last.absolute_end_time || last.absolute_start_time,
+          startTimeSeconds: first.start_time,
+          endTimeSeconds: last.end_time,
+          combinedText: chunkText.trim(),
+          segments: chunkSegments,
+        });
+        chunkSegments = [];
+        chunkText = "";
+      };
+
+      for (const seg of g.segments) {
+        const segText = (seg.text || "").trim();
+        if (!segText) continue;
+
+        const candidate = chunkText ? `${chunkText} ${segText}` : segText;
+
+        // If adding this segment would exceed MAX_CHARS, flush current chunk first.
+        // Then start a new chunk with this segment.
+        if (chunkSegments.length > 0 && candidate.length > MAX_CHARS) {
+          flushChunk();
         }
+
+        chunkSegments.push(seg);
+        chunkText = chunkText ? `${chunkText} ${segText}` : segText;
       }
+
+      flushChunk();
     }
 
-    return splitGroups;
-  }, [splitTextIntoSentenceChunks]);
+    return chunkedGroups;
+  }, []);
 
   // Get unique speakers in order of appearance
   const speakerOrder = useMemo(() => {

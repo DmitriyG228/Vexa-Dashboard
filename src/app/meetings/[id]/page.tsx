@@ -96,6 +96,8 @@ export default function MeetingDetailPage() {
   const [editedNotes, setEditedNotes] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const shouldSetCursorToEnd = useRef(false);
 
   // Bot control state
   const [isStoppingBot, setIsStoppingBot] = useState(false);
@@ -210,6 +212,46 @@ export default function MeetingDetailPage() {
       fetchTranscripts(meetingPlatform, meetingNativeId);
     }
   }, [meetingPlatform, meetingNativeId, fetchTranscripts]);
+
+  // Handle saving notes on blur
+  const handleNotesBlur = useCallback(async () => {
+    if (!currentMeeting || isSavingNotes) return;
+
+    const originalNotes = currentMeeting.data?.notes || "";
+    const trimmedNotes = editedNotes.trim();
+
+    // Only save if content has changed
+    if (trimmedNotes === originalNotes) {
+      setIsEditingNotes(false);
+      return;
+    }
+
+    setIsSavingNotes(true);
+    try {
+      await updateMeetingData(currentMeeting.platform, currentMeeting.platform_specific_id, {
+        notes: trimmedNotes,
+      });
+      setIsEditingNotes(false);
+    } catch (err) {
+      toast.error("Failed to save notes");
+      // Keep in edit mode on error so user can retry
+    } finally {
+      setIsSavingNotes(false);
+    }
+  }, [currentMeeting, editedNotes, isSavingNotes, updateMeetingData]);
+
+  // Handle setting cursor to end when textarea is focused
+  const handleNotesFocus = useCallback((e: React.FocusEvent<HTMLTextAreaElement>) => {
+    if (shouldSetCursorToEnd.current && editedNotes) {
+      const textarea = e.currentTarget;
+      const length = editedNotes.length;
+      // Use setTimeout to ensure the textarea is fully rendered
+      setTimeout(() => {
+        textarea.setSelectionRange(length, length);
+      }, 0);
+      shouldSetCursorToEnd.current = false;
+    }
+  }, [editedNotes]);
 
   if (error) {
     return (
@@ -554,6 +596,7 @@ export default function MeetingDetailPage() {
               onClick={() => {
                 if (!isNotesExpanded) {
                   setEditedNotes(currentMeeting.data?.notes || "");
+                  setIsEditingNotes(true);
                   setIsNotesExpanded(true);
                 } else {
                   setIsNotesExpanded(false);
@@ -611,71 +654,41 @@ export default function MeetingDetailPage() {
 
       {/* Collapsible Notes Section - Mobile Only */}
       {isNotesExpanded && (
-        <div className="lg:hidden bg-card text-card-foreground rounded-lg border shadow-sm overflow-hidden animate-in slide-in-from-top-2 duration-200">
+        <div className="lg:hidden sticky top-0 z-50 bg-card text-card-foreground rounded-lg border shadow-sm overflow-hidden animate-in slide-in-from-top-2 duration-200">
           <div className="p-3 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Notes</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => {
-                  setIsNotesExpanded(false);
-                  setIsEditingNotes(false);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                {isSavingNotes && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving...
+                  </div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => {
+                    setIsNotesExpanded(false);
+                    setIsEditingNotes(false);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <Textarea
+              ref={notesTextareaRef}
               value={editedNotes}
               onChange={(e) => setEditedNotes(e.target.value)}
+              onFocus={handleNotesFocus}
+              onBlur={handleNotesBlur}
               placeholder="Add notes about this meeting..."
               className="min-h-[120px] resize-none text-sm"
               disabled={isSavingNotes}
               autoFocus
             />
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={isSavingNotes}
-                onClick={() => {
-                  setIsNotesExpanded(false);
-                  setIsEditingNotes(false);
-                  setEditedNotes(currentMeeting.data?.notes || "");
-                }}
-              >
-                Close
-              </Button>
-              <Button
-                size="sm"
-                disabled={isSavingNotes}
-                onClick={async () => {
-                  setIsSavingNotes(true);
-                  try {
-                    await updateMeetingData(currentMeeting.platform, currentMeeting.platform_specific_id, {
-                      notes: editedNotes.trim(),
-                    });
-                    setIsEditingNotes(false);
-                    toast.success("Notes saved");
-                  } catch (err) {
-                    toast.error("Failed to save notes");
-                  } finally {
-                    setIsSavingNotes(false);
-                  }
-                }}
-              >
-                {isSavingNotes ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save"
-                )}
-              </Button>
-            </div>
           </div>
         </div>
       )}
@@ -888,79 +901,49 @@ export default function MeetingDetailPage() {
                   <FileText className="h-4 w-4" />
                   Notes
                 </CardTitle>
-                {!isEditingNotes && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-muted-foreground"
-                    onClick={() => {
-                      setEditedNotes(currentMeeting.data?.notes || "");
-                      setIsEditingNotes(true);
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                    {currentMeeting.data?.notes ? "Edit" : "Add"}
-                  </Button>
+                {isSavingNotes && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving...
+                  </div>
                 )}
               </div>
             </CardHeader>
             <CardContent>
               {isEditingNotes ? (
-                <div className="space-y-3">
-                  <Textarea
-                    value={editedNotes}
-                    onChange={(e) => setEditedNotes(e.target.value)}
-                    placeholder="Add notes about this meeting..."
-                    className="min-h-[120px] resize-none"
-                    disabled={isSavingNotes}
-                    autoFocus
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={isSavingNotes}
-                      onClick={() => setIsEditingNotes(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={isSavingNotes}
-                      onClick={async () => {
-                        setIsSavingNotes(true);
-                        try {
-                          await updateMeetingData(currentMeeting.platform, currentMeeting.platform_specific_id, {
-                            notes: editedNotes.trim(),
-                          });
-                          setIsEditingNotes(false);
-                          toast.success("Notes saved");
-                        } catch (err) {
-                          toast.error("Failed to save notes");
-                        } finally {
-                          setIsSavingNotes(false);
-                        }
-                      }}
-                    >
-                      {isSavingNotes ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Save"
-                      )}
-                    </Button>
-                  </div>
-                </div>
+                <Textarea
+                  ref={notesTextareaRef}
+                  value={editedNotes}
+                  onChange={(e) => setEditedNotes(e.target.value)}
+                  onFocus={handleNotesFocus}
+                  onBlur={handleNotesBlur}
+                  placeholder="Add notes about this meeting..."
+                  className="min-h-[120px] resize-none"
+                  disabled={isSavingNotes}
+                  autoFocus
+                />
               ) : currentMeeting.data?.notes ? (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                <p
+                  className="text-sm text-muted-foreground whitespace-pre-wrap cursor-text hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors"
+                  onClick={() => {
+                    setEditedNotes(currentMeeting.data?.notes || "");
+                    shouldSetCursorToEnd.current = true;
+                    setIsEditingNotes(true);
+                  }}
+                >
                   {currentMeeting.data.notes}
                 </p>
               ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  No notes yet. Click "Add" to add notes.
-                </p>
+                <div
+                  className="text-sm text-muted-foreground italic cursor-text hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors min-h-[120px] flex items-center"
+                  onClick={() => {
+                    setEditedNotes("");
+                    shouldSetCursorToEnd.current = false;
+                    setIsEditingNotes(true);
+                  }}
+                >
+                  Click here to add notes...
+                </div>
               )}
             </CardContent>
           </Card>

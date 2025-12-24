@@ -201,7 +201,24 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       (a, b) => a.absolute_start_time.localeCompare(b.absolute_start_time)
     );
 
-    set({ transcripts: sortedTranscripts });
+    // Get the first segment's absolute_start_time to use as meeting start time
+    const firstSegmentTime = sortedTranscripts.length > 0 
+      ? sortedTranscripts[0].absolute_start_time 
+      : null;
+
+    // Update current meeting's start_time if not set and we have a first segment
+    const { currentMeeting } = get();
+    const updatedMeeting = firstSegmentTime && currentMeeting && !currentMeeting.start_time
+      ? {
+          ...currentMeeting,
+          start_time: firstSegmentTime,
+        }
+      : currentMeeting;
+
+    set({ 
+      transcripts: sortedTranscripts,
+      ...(updatedMeeting !== currentMeeting ? { currentMeeting: updatedMeeting } : {}),
+    });
   },
 
   // Upsert segments from WebSocket (Step 2 of algorithm)
@@ -246,9 +263,26 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
       (a, b) => a.absolute_start_time.localeCompare(b.absolute_start_time)
     );
     
+    // Get the first segment's absolute_start_time to use as meeting start time
+    const firstSegmentTime = sortedTranscripts.length > 0 
+      ? sortedTranscripts[0].absolute_start_time 
+      : null;
+
+    // Update current meeting's start_time if not set and we have a first segment
+    const { currentMeeting } = get();
+    const updatedMeeting = firstSegmentTime && currentMeeting && !currentMeeting.start_time
+      ? {
+          ...currentMeeting,
+          start_time: firstSegmentTime,
+        }
+      : currentMeeting;
+    
     // Update store immediately - Zustand's set() is synchronous, ensuring immediate UI updates
     // Always set to ensure React detects changes (new array reference)
-    set({ transcripts: sortedTranscripts });
+    set({ 
+      transcripts: sortedTranscripts,
+      ...(updatedMeeting !== currentMeeting ? { currentMeeting: updatedMeeting } : {}),
+    });
   },
 
   // Real-time: Add new transcript segment (legacy method, kept for compatibility)
