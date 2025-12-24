@@ -7,6 +7,8 @@
 
 🔒 Own your data. Self-host everything. No cloud dependencies.
 
+> 📖 **Main Repository**: This is the web UI for Vexa. For the core API, deployment guides, and full documentation, see the [main Vexa repository](https://github.com/Vexa-ai/vexa).
+
 ## 🚀 Deploy in Seconds
 
 ```bash
@@ -25,9 +27,10 @@ docker run -p 3000:3000 \
 ## ✨ Features
 
 - **🎯 Join Meetings** - Send transcription bots to Google Meet and Microsoft Teams
+- **⚡ Real-time Transcription** - Watch live transcriptions as they happen during the meeting (sub-second latency via WebSocket)
 - **📝 View Transcripts** - Browse and search through meeting transcriptions
-- **⚡ Real-time** - Watch live transcriptions via WebSocket
 - **🤖 AI Assistant** - Chat with your transcripts (OpenAI, Anthropic, Groq, Ollama)
+- **🔌 MCP Integration** - Easy setup for MCP-compatible agents (Claude Desktop, Cursor, etc.) to access Vexa capabilities
 - **📤 Export** - Download in TXT, JSON, SRT, or VTT formats
 - **👥 User Management** - Admin dashboard for users and API tokens
 - **🌙 Dark Mode** - System-aware theme switching
@@ -74,7 +77,6 @@ Add AI-powered transcript analysis:
 ```bash
 docker run -p 3000:3000 \
   -e VEXA_API_URL=http://your-vexa-instance:8056 \
-  -e VEXA_ADMIN_API_URL=http://your-vexa-instance:8057 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   -e AI_MODEL=openai/gpt-4o \
   -e AI_API_KEY=sk-your-openai-key \
@@ -88,7 +90,6 @@ Enable Magic Link login with SMTP:
 ```bash
 docker run -p 3000:3000 \
   -e VEXA_API_URL=http://your-vexa-instance:8056 \
-  -e VEXA_ADMIN_API_URL=http://your-vexa-instance:8057 \
   -e VEXA_ADMIN_API_KEY=your_admin_api_key \
   -e SMTP_HOST=smtp.resend.com \
   -e SMTP_PORT=587 \
@@ -215,4 +216,60 @@ Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ## Related Projects
 
-- [Vexa](https://github.com/Vexa-ai/vexa) - Self-hosted meeting transcription API
+- **[Vexa](https://github.com/Vexa-ai/vexa)** - Main repository with core API, services, and documentation
+  - [Deployment Guide](https://github.com/Vexa-ai/vexa/blob/main/docs/deployment.md) - Full stack deployment
+  - [Vexa Lite Deployment](https://github.com/Vexa-ai/vexa/blob/main/docs/vexa-lite-deployment.md) - Single container deployment
+  - [User API Guide](https://github.com/Vexa-ai/vexa/blob/main/docs/user_api_guide.md) - Complete API reference
+- **[vexa-lite-deploy](https://github.com/Vexa-ai/vexa-lite-deploy)** - One-click deployment configurations for Vexa Lite
+
+## How It Works
+
+Vexa Dashboard connects to your Vexa API instance (self-hosted or hosted) to provide:
+
+1. **Meeting Management** - Join Google Meet and Microsoft Teams meetings with transcription bots
+2. **Real-time Transcription** - Watch live transcriptions as they happen during the meeting. Transcripts stream in real-time via WebSocket with sub-second latency, so you see what's being said as it happens.
+3. **User Management** - Admin interface for managing users and API tokens
+4. **AI Assistant** - Chat with your transcripts using various AI providers
+
+The dashboard is a Next.js application that communicates with Vexa's REST and WebSocket APIs. You can deploy it alongside your Vexa instance or connect it to a remote Vexa API.
+
+## 🤖 MCP (Model Context Protocol) Integration
+
+Vexa provides easy MCP setup for your AI agents. Connect Claude Desktop, Cursor, or any MCP-compatible client to access Vexa's meeting transcription capabilities directly from your agent.
+
+### Quick Setup for Claude Desktop
+
+1. **Get your Vexa API key** from your Vexa Dashboard or API settings
+2. **Open Claude Desktop Settings** → **Developer** → **Edit Config**
+3. **Add MCP configuration:**
+
+```json
+{
+  "mcpServers": {
+    "Vexa": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://api.cloud.vexa.ai/mcp",
+        "--header",
+        "Authorization:${VEXA_API_KEY}"
+      ],
+      "env": {
+        "VEXA_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+4. **For self-hosted Vexa**, replace `https://api.cloud.vexa.ai/mcp` with your Vexa API URL (e.g., `http://localhost:8056/mcp` for Vexa Lite)
+5. **Restart Claude Desktop**
+
+Your agent can now:
+- Send bots to meetings
+- Get real-time transcripts
+- Access meeting history
+- Manage users and API tokens
+
+> 📖 **Full MCP setup guide**: See the [Vexa MCP documentation](https://github.com/Vexa-ai/vexa/tree/main/services/mcp) for detailed instructions and advanced configuration.
