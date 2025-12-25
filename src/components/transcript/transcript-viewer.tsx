@@ -61,6 +61,11 @@ export function TranscriptViewer({
   const autoFollowRef = useRef(true);
   const resumeFollowTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isAutoScrollingRef = useRef(false);
+  
+  // Track newly added segments for highlight animation
+  const [newSegmentIds, setNewSegmentIds] = useState<Set<string>>(new Set());
+  const previousSegmentIdsRef = useRef<Set<string>>(new Set());
+  const highlightTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     autoFollowRef.current = autoFollow;
