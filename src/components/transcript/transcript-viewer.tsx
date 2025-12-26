@@ -589,7 +589,7 @@ export function TranscriptViewer({
 
   return (
     <Card className="flex flex-col h-full flex-1 min-h-0">
-      <CardHeader className="flex-shrink-0 space-y-2 lg:space-y-4 py-3 lg:py-6">
+      <CardHeader className="flex-shrink-0 space-y-2 py-2 lg:py-3">
         {/* Search and Filter Bar - compact on mobile */}
         <div className="flex flex-wrap items-center gap-1.5 lg:gap-2">
           {/* Search */}

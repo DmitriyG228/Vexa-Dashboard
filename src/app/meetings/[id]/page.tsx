@@ -828,7 +828,7 @@ export default function MeetingDetailPage() {
                       <Loader2 className="h-2.5 w-2.5 ml-1 animate-spin" />
                     )}
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent align="end" sideOffset={4}>
                     {SUPPORTED_LANGUAGES.map((lang) => (
                       <SelectItem key={lang.code} value={lang.code}>
                         {lang.name}
@@ -861,7 +861,7 @@ export default function MeetingDetailPage() {
                         alt="AI"
                         width={12}
                         height={12}
-                        className="object-contain invert"
+                        className="object-contain dark:invert"
                       />
                     </Button>
                   </DropdownMenuTrigger>
