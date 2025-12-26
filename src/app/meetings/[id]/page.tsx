@@ -44,6 +44,14 @@ import { cn } from "@/lib/utils";
 import { vexaAPI } from "@/lib/api";
 import { toast } from "sonner";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SUPPORTED_LANGUAGES } from "@/types/vexa";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -117,6 +125,12 @@ export default function MeetingDetailPage() {
 
   // Bot control state
   const [isStoppingBot, setIsStoppingBot] = useState(false);
+  
+  // Bot config state
+  const [currentLanguage, setCurrentLanguage] = useState<string | undefined>(
+    currentMeeting?.data?.languages?.[0] || "auto"
+  );
+  const [isUpdatingConfig, setIsUpdatingConfig] = useState(false);
 
   // Track if initial load is complete to prevent animation replays
   const hasLoadedRef = useRef(false);
@@ -147,6 +161,29 @@ export default function MeetingDetailPage() {
       setIsStoppingBot(false);
     }
   }, [currentMeeting, fetchMeeting, meetingId]);
+
+  // Handle language change
+  const handleLanguageChange = useCallback(async (newLanguage: string) => {
+    if (!currentMeeting) return;
+    setIsUpdatingConfig(true);
+    try {
+      await vexaAPI.updateBotConfig(currentMeeting.platform, currentMeeting.platform_specific_id, {
+        language: newLanguage === "auto" ? undefined : newLanguage,
+        task: "transcribe", // Always use transcribe mode
+      });
+      setCurrentLanguage(newLanguage);
+      updateMeetingData(currentMeeting.platform, currentMeeting.platform_specific_id, {
+        languages: [newLanguage],
+      });
+      toast.success("Language updated successfully");
+    } catch (error) {
+      toast.error("Failed to update language", {
+        description: (error as Error).message,
+      });
+    } finally {
+      setIsUpdatingConfig(false);
+    }
+  }, [currentMeeting, updateMeetingData]);
 
   // Handle export
   const handleExport = useCallback((format: "txt" | "json" | "srt" | "vtt") => {
@@ -348,6 +385,14 @@ export default function MeetingDetailPage() {
   useEffect(() => {
     if (currentMeeting && !hasLoadedRef.current) {
       hasLoadedRef.current = true;
+    }
+  }, [currentMeeting]);
+
+  // Update config state when meeting data changes
+  useEffect(() => {
+    if (currentMeeting) {
+      const lang = currentMeeting.data?.languages?.[0] || "auto";
+      setCurrentLanguage(lang);
     }
   }, [currentMeeting]);
 
@@ -768,6 +813,31 @@ export default function MeetingDetailPage() {
                 {statusConfig.label}
               </Badge>
 
+              {/* Language Selector - Mobile (only when active) */}
+              {currentMeeting.status === "active" && (
+                <Select
+                  value={currentLanguage}
+                  onValueChange={handleLanguageChange}
+                  disabled={isUpdatingConfig}
+                >
+                  <SelectTrigger className="h-7 px-1.5 text-[9px] border-0 bg-transparent hover:bg-muted/50 w-auto shrink-0 ml-0.5 [&>svg:last-child]:hidden">
+                    <span className="text-[9px] font-medium">
+                      {SUPPORTED_LANGUAGES.find(l => l.code === currentLanguage)?.code.toUpperCase() || "AUTO"}
+                    </span>
+                    {isUpdatingConfig && (
+                      <Loader2 className="h-2.5 w-2.5 ml-1 animate-spin" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
               <div className="flex items-center border-l ml-0.5 pl-0.5 gap-0">
                 <Button
                   variant="ghost"
@@ -871,6 +941,7 @@ export default function MeetingDetailPage() {
           </div>
         </div>
       </div>
+
 
       {/* Collapsible Notes Section - Mobile Only */}
       {isNotesExpanded && (
@@ -1059,8 +1130,47 @@ export default function MeetingDetailPage() {
                 </div>
               )}
 
-              {/* Languages */}
-              {currentMeeting.data?.languages &&
+              {/* Bot Settings - Only show when active */}
+              {currentMeeting.status === "active" && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Bot Settings</p>
+                    
+                    {/* Language Selection */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground">Language</label>
+                      <Select
+                        value={currentLanguage}
+                        onValueChange={handleLanguageChange}
+                        disabled={isUpdatingConfig}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SUPPORTED_LANGUAGES.map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              {lang.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {isUpdatingConfig && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Updating...</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Languages (read-only when not active) */}
+              {currentMeeting.status !== "active" &&
+                currentMeeting.data?.languages &&
                 currentMeeting.data.languages.length > 0 && (
                   <div className="flex items-center gap-3">
                     <Globe className="h-4 w-4 text-muted-foreground" />
